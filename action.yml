@@ -1,6 +1,9 @@
 # action.yml
 name: 'Dotnet Outdated'
 description: 'Update NuGet packages on dotnet solution'
+branding:
+  icon: 'arrow-down-circle'  
+  color: 'green'
 inputs:
   location:  # id of input
     description: 'Location of the solution, project or folder to run'
