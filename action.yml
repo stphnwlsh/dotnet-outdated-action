@@ -1,0 +1,26 @@
+# action.yml
+name: 'Dotnet Outdated'
+description: 'Update NuGet packages on dotnet solution'
+inputs:
+  location:  # id of input
+    description: 'Location of the solution, project or folder to run'
+    required: true
+    default: ''
+outputs:
+  updated: # id of output
+    description: 'Were updates required and were they successful?'
+    value: ${{ steps.update.outputs.updated }}
+runs:  
+  using: "composite"
+  steps:
+    - run: dotnet tool install --global dotnet-outdated-tool
+      shell: bash
+    - id: update
+      run: |
+        OUTPUT=$(dotnet outdated ${{ inputs.location }} -u)
+        if [[ $OUTPUT =~ "No outdated dependencies were detected" ]]; then
+            echo "::set-output name=updated::false"
+        else
+            echo "::set-output name=updated::true"
+        fi
+      shell: bash
