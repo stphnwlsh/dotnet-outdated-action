@@ -16,6 +16,8 @@ Set to `true` if there were package updates and `false` if no package updates we
 
 ## Example usage
 
+```
 uses: stphnwlsh/dotnet-outdated-action@v1
 with:
   location: 'Sample.sln'
+```
