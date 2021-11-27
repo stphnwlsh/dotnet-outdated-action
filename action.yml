@@ -1,6 +1,7 @@
 # action.yml
 name: 'Dotnet Outdated Action'
 description: 'This action installs the dotnet outdated tool and then attempts to update any NuGet packages that are available.'
+icon: arrow-down-circle
 inputs:
   location:  # id of input
     description: 'Location of the solution, project or folder to run'
