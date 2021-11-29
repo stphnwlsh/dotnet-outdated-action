@@ -41,10 +41,14 @@ runs:
             COMMAND_EXCLUDES+="--exclude $i "
         done
 
+        echo "dotnet outdated ${{ inputs.location }} --upgrade $COMMAND_INCLUDES $COMMAND_EXCLUDES"
+
         OUTPUT=$(dotnet outdated ${{ inputs.location }} --upgrade $COMMAND_INCLUDES $COMMAND_EXCLUDES)
         if [[ $OUTPUT =~ "No outdated dependencies were detected" ]]; then
             echo "::set-output name=updated::false"
         else
             echo "::set-output name=updated::true"
         fi
+
+        echo $OUTPUT
       shell: bash
