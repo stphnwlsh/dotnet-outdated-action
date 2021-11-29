@@ -7,8 +7,19 @@ branding:
 inputs:
   location:  # id of input
     description: 'Location of the solution, project or folder to run'
-    required: true
     default: ''
+    required: true
+    type: string
+  includes:
+    description: 'Comma separated list of values to include in package update analysis'
+    default: ''
+    required: false
+    type: string
+  excludes:
+    description: 'Comma separated list of values to exclude from package update analysis'
+    default: ''
+    required: false
+    type: string
 outputs:
   updated: # id of output
     description: 'Were updates required and were they successful?'
@@ -20,7 +31,17 @@ runs:
       shell: bash
     - id: update
       run: |
-        OUTPUT=$(dotnet outdated ${{ inputs.location }} -u)
+        COMMAND_INCLUDES=""
+        for i in $(echo ${{ inputs.includes }} | sed "s/,/ /g"); do
+            COMMAND_INCLUDES+="--include $i "
+        done
+
+        COMMAND_EXCLUDES=""
+        for i in $(echo ${{ inputs.excludes }} | sed "s/,/ /g"); do
+            COMMAND_EXCLUDES+="--exclude $i "
+        done
+
+        OUTPUT=$(dotnet outdated ${{ inputs.location }} --upgrade $COMMAND_INCLUDES $COMMAND_EXCLUDES)
         if [[ $OUTPUT =~ "No outdated dependencies were detected" ]]; then
             echo "::set-output name=updated::false"
         else
