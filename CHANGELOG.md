@@ -2,7 +2,7 @@
 
 All notable changes to this action. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [semantic versioning](https://semver.org).
 
-## [3.0.0] - unreleased
+## [3.0.0] - 2026-11-09
 
 ### Changed
 
