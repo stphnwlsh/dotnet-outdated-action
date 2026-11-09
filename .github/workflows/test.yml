@@ -15,7 +15,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Lint workflows
         uses: raven-actions/actionlint@v2
@@ -30,9 +30,9 @@ jobs:
     env:
       PROJECT: test/fixtures/OutdatedSample/OutdatedSample.csproj
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
 
