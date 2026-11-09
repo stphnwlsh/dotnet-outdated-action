@@ -1,0 +1,86 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Lint workflows
+        uses: raven-actions/actionlint@v2
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      PROJECT: test/fixtures/OutdatedSample/OutdatedSample.csproj
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Upgrade only Newtonsoft.Json, inside its major version
+        id: filtered
+        uses: ./
+        with:
+          location: ${{ env.PROJECT }}
+          includes: Newtonsoft
+          version-lock: Major
+
+      - name: Check the filtered upgrade
+        shell: bash
+        env:
+          UPDATED: ${{ steps.filtered.outputs.updated }}
+        run: |
+          set -euo pipefail
+          [[ "$UPDATED" == "true" ]] || { echo "::error::Expected updated=true, got '$UPDATED'"; exit 1; }
+          grep -q 'Include="Newtonsoft.Json" Version="12.0.3"' "$PROJECT" || { echo "::error::Newtonsoft.Json should be 12.0.3, the last 12.x"; cat "$PROJECT"; exit 1; }
+          grep -q 'Include="Humanizer.Core" Version="2.8.26"' "$PROJECT" || { echo "::error::Humanizer.Core should not have been touched"; cat "$PROJECT"; exit 1; }
+
+      - name: Upgrade everything
+        id: everything
+        uses: ./
+        with:
+          location: ${{ env.PROJECT }}
+
+      - name: Check the full upgrade
+        shell: bash
+        env:
+          UPDATED: ${{ steps.everything.outputs.updated }}
+        run: |
+          set -euo pipefail
+          [[ "$UPDATED" == "true" ]] || { echo "::error::Expected updated=true, got '$UPDATED'"; exit 1; }
+          if grep -q 'Version="12.0.3"' "$PROJECT" || grep -q 'Version="2.8.26"' "$PROJECT"; then
+            echo "::error::Every package should be on its latest version"; cat "$PROJECT"; exit 1
+          fi
+
+      - name: Run it again with nothing left to do
+        id: nothing
+        uses: ./
+        with:
+          location: ${{ env.PROJECT }}
+
+      - name: Check nothing changed
+        shell: bash
+        env:
+          UPDATED: ${{ steps.nothing.outputs.updated }}
+        run: |
+          set -euo pipefail
+          [[ "$UPDATED" == "false" ]] || { echo "::error::Expected updated=false, got '$UPDATED'"; exit 1; }
