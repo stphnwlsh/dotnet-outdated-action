@@ -1,0 +1,34 @@
+# The example from the README, running for real against this repository's test fixture.
+# Run it by hand to see the loop: upgrade, build, then the diff a pull request would carry.
+name: Example
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Update NuGet packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Upgrade packages
+        id: outdated
+        uses: ./
+        with:
+          location: test/fixtures/OutdatedSample
+
+      - name: Build
+        if: steps.outdated.outputs.updated == 'true'
+        run: dotnet build test/fixtures/OutdatedSample
+
+      - name: Show what would go in the pull request
+        if: steps.outdated.outputs.updated == 'true'
+        run: git diff

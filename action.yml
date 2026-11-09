@@ -1,58 +1,118 @@
-# action.yml
 name: 'Dotnet Outdated - Install and Update'
-description: 'This action installs the dotnet outdated tool and then attempts to update any NuGet packages that are available.'
+description: 'Installs the dotnet outdated tool and upgrades every outdated NuGet package in your solution, project or folder.'
+author: 'Stephen Walsh'
 branding:
-  icon: 'arrow-down-circle'  
+  icon: 'arrow-down-circle'
   color: 'green'
+
 inputs:
-  location:  # id of input
-    description: 'Location of the solution, project or folder to run'
-    default: ''
-    required: true
-    type: string
+  location:
+    description: 'The solution, project or folder to check. Defaults to the working directory.'
+    required: false
+    default: '.'
   includes:
-    description: 'Comma separated list of values to include in package update analysis'
-    default: ''
+    description: 'Comma separated list. Only packages whose names contain one of these values are upgraded.'
     required: false
-    type: string
+    default: ''
   excludes:
-    description: 'Comma separated list of values to exclude from package update analysis'
-    default: ''
+    description: 'Comma separated list. Packages whose names contain one of these values are left alone.'
     required: false
-    type: string
+    default: ''
+  version-lock:
+    description: 'Stops upgrades crossing a version boundary: None, Major or Minor.'
+    required: false
+    default: 'None'
+  pre-release:
+    description: 'When to consider pre-release versions: Auto, Always or Never.'
+    required: false
+    default: 'Auto'
+  tool-version:
+    description: 'The version of dotnet-outdated-tool to install. Empty means the latest.'
+    required: false
+    default: ''
+
 outputs:
-  updated: # id of output
-    description: 'Were updates required and were they successful?'
+  updated:
+    description: 'true when at least one package was upgraded, false when everything was already current.'
     value: ${{ steps.update.outputs.updated }}
-runs:  
-  using: "composite"
+
+runs:
+  using: 'composite'
   steps:
-    - run: dotnet tool install --global dotnet-outdated-tool
+    - name: Install dotnet outdated
       shell: bash
-    - id: update
+      env:
+        TOOL_VERSION: ${{ inputs.tool-version }}
       run: |
-        COMMAND_INCLUDES=""
-        for i in $(echo ${{ inputs.includes }} | sed "s/,/ /g"); do
-            COMMAND_INCLUDES+="--include $i "
-        done
+        set -euo pipefail
 
-        COMMAND_EXCLUDES=""
-        for i in $(echo ${{ inputs.excludes }} | sed "s/,/ /g"); do
-            COMMAND_EXCLUDES+="--exclude $i "
-        done
-
-        echo "dotnet outdated --upgrade $COMMAND_INCLUDES $COMMAND_EXCLUDES"
-
-        OUTPUT=`dotnet outdated --upgrade $COMMAND_INCLUDES $COMMAND_EXCLUDES`
-        echo "$OUTPUT"
-
-        if [[ $OUTPUT =~ "No outdated dependencies" ]]; then
-            echo "::set-output name=updated::false"
-        elif [[ $OUTPUT =~ "Errors occurred" ]]; then
-            echo "::set-output name=updated::false"
-            exit 1
-        else
-            echo "::set-output name=updated::true"
+        version_args=()
+        if [[ -n "$TOOL_VERSION" ]]; then
+          version_args=(--version "$TOOL_VERSION")
         fi
 
+        if dotnet tool list --global | grep -qi '^dotnet-outdated-tool '; then
+          dotnet tool update --global dotnet-outdated-tool ${version_args[@]+"${version_args[@]}"}
+        else
+          dotnet tool install --global dotnet-outdated-tool ${version_args[@]+"${version_args[@]}"}
+        fi
+
+        tools_dir="$HOME/.dotnet/tools"
+        if command -v cygpath > /dev/null; then
+          tools_dir="$(cygpath -w "$tools_dir")"
+        fi
+        echo "$tools_dir" >> "$GITHUB_PATH"
+
+    - name: Upgrade outdated packages
+      id: update
       shell: bash
+      env:
+        LOCATION: ${{ inputs.location }}
+        INCLUDES: ${{ inputs.includes }}
+        EXCLUDES: ${{ inputs.excludes }}
+        VERSION_LOCK: ${{ inputs.version-lock }}
+        PRE_RELEASE: ${{ inputs.pre-release }}
+      run: |
+        set -uo pipefail
+
+        args=("${LOCATION:-.}" --upgrade --version-lock "$VERSION_LOCK" --pre-release "$PRE_RELEASE")
+
+        # Spaces around the commas are forgiven. Life is too short.
+        IFS=',' read -ra include_list <<< "$INCLUDES"
+        for value in ${include_list[@]+"${include_list[@]}"}; do
+          value="${value// /}"
+          if [[ -n "$value" ]]; then args+=(--include "$value"); fi
+        done
+
+        IFS=',' read -ra exclude_list <<< "$EXCLUDES"
+        for value in ${exclude_list[@]+"${exclude_list[@]}"}; do
+          value="${value// /}"
+          if [[ -n "$value" ]]; then args+=(--exclude "$value"); fi
+        done
+
+        echo "dotnet outdated ${args[*]}"
+
+        log="$RUNNER_TEMP/dotnet-outdated.log"
+        dotnet outdated "${args[@]}" 2>&1 | tee "$log"
+        status=${PIPESTATUS[0]}
+
+        if [[ $status -ne 0 ]] || grep -q "Errors occurred" "$log"; then
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          echo "::error title=dotnet outdated::dotnet outdated failed with exit code $status. The log above has the details."
+          exit 1
+        fi
+
+        if grep -q "No outdated dependencies" "$log"; then
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          echo "### dotnet outdated: nothing to do" >> "$GITHUB_STEP_SUMMARY"
+          echo "Every package is already current. Have a biscuit." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "### dotnet outdated: packages upgraded"
+            echo
+            echo '```text'
+            cat "$log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
