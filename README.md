@@ -121,7 +121,7 @@ Bug reports, ideas and pull requests are all welcome. [CONTRIBUTING.md](CONTRIBU
 
 The heavy lifting is all [dotnet outdated](https://github.com/dotnet-outdated/dotnet-outdated), by Jerrie Pelser and its contributors. This action just puts it on a timer and gives it a step output.
 
-If it saves you some time, you can [sponsor the work](https://github.com/sponsors/stphnwlsh). It also funds [Lean Mean Clean Apps](https://leanmeancleanapps.github.io), and the coffee.
+If it saves you some time, you can [sponsor the work](https://github.com/sponsors/stphnwlsh). It also funds [Lean Mean Clean Apps](https://leanmeanclean.dev), and the coffee.
 
 ## Licence
 
